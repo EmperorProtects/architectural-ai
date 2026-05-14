@@ -1,0 +1,71 @@
+services:
+
+  app:
+    build: .
+    container_name: arch-ai
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - CAD_TARGET=${CAD_TARGET:-autocad_ezdxf}
+    volumes:
+      - ./data:/app/data          # persist feedback DB + training data
+      - ./outputs:/app/outputs    # generated DXF/CAD files
+    networks:
+      - arch-net
+    command: python api.py
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: arch-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama   # persist downloaded models
+    networks:
+      - arch-net
+    healthcheck:
+      test: kill -0 1 
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Pull model on first start
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: arch-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - arch-net
+    entrypoint: >
+      sh -c "ollama pull ${OLLAMA_MODEL:-llama3.2} &&
+             echo 'Model ready'"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  nginx:
+    image: nginx:alpine
+    container_name: arch-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - arch-net
+
+volumes:
+  ollama-models:
+
+networks:
+  arch-net:
+    driver: bridge

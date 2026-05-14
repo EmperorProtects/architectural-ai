@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architectural AI — Ingoude</title>
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --border2: #383838;
+    --text: #e8e8e8;
+    --muted: #888;
+    --dim: #555;
+    --accent: #c8f060;
+    --accent-dim: #8aaa3a;
+    --red: #ff5f5f;
+    --amber: #f0c040;
+    --green: #60d080;
+    --mono: 'JetBrains Mono', 'Fira Mono', monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  /* Layout */
+  .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; }
+  .main { padding: 32px; overflow-y: auto; max-width: 860px; }
+
+  /* Sidebar */
+  .logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo-mark { font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; }
+  .logo-name { font-size: 15px; font-weight: 500; margin-top: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; cursor: pointer; color: var(--muted); font-size: 13px; transition: all .15s; border-left: 2px solid transparent; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(200,240,96,.06); }
+  .nav-icon { width: 16px; height: 16px; opacity: .7; }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 6px; box-shadow: 0 0 6px var(--green); }
+  .status-label { font-size: 11px; color: var(--muted); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card-title .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--surface2); border: 1px solid var(--border2); color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+  /* Form */
+  textarea, input[type=text], input[type=number] {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text); font-family: var(--sans);
+    font-size: 13px; padding: 10px 12px; outline: none; resize: vertical;
+    transition: border-color .15s;
+  }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  textarea { min-height: 80px; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #0e0e0e; }
+  .btn-primary:hover { background: #d8ff70; }
+  .btn-primary:disabled { background: var(--dim); color: var(--muted); cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border2); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* Pills */
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .pill-green { background: rgba(96,208,128,.12); color: var(--green); }
+  .pill-red { background: rgba(255,95,95,.12); color: var(--red); }
+  .pill-amber { background: rgba(240,192,64,.12); color: var(--amber); }
+  .pill-gray { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .pill-accent { background: rgba(200,240,96,.12); color: var(--accent); }
+
+  /* Variants */
+  .variant { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font-size: 12px; line-height: 1.6; transition: all .15s; color: var(--muted); }
+  .variant:hover { border-color: var(--border2); color: var(--text); }
+  .variant.selected { border-color: var(--accent); color: var(--text); background: rgba(200,240,96,.04); }
+  .variant-num { font-size: 10px; color: var(--accent); font-weight: 600; margin-bottom: 4px; font-family: var(--mono); }
+
+  /* AST viewer */
+  .ast-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat-cell { background: var(--surface2); border-radius: var(--radius); padding: 10px; }
+  .stat-label { font-size: 10px; color: var(--dim); margin-bottom: 3px; }
+  .stat-val { font-size: 16px; font-weight: 500; }
+  .element-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--surface2); border-radius: 4px; margin-bottom: 4px; font-size: 12px; }
+  .el-type { font-family: var(--mono); font-size: 10px; color: var(--accent); min-width: 60px; }
+  .el-id { color: var(--muted); flex: 1; font-family: var(--mono); }
+  .el-mat { color: var(--dim); font-size: 11px; }
+  .elements-scroll { max-height: 180px; overflow-y: auto; }
+
+  /* Code block */
+  pre { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font-family: var(--mono); font-size: 11px; color: #a8c080; overflow-x: auto; white-space: pre-wrap; max-height: 260px; overflow-y: auto; }
+
+  /* Validation */
+  .vline { font-size: 12px; padding: 3px 0; }
+  .vline.err { color: var(--red); }
+  .vline.warn { color: var(--amber); }
+  .vline.ok { color: var(--green); }
+
+  /* Stars */
+  .stars { display: flex; gap: 6px; }
+  .star { font-size: 22px; cursor: pointer; color: var(--border2); transition: color .1s; }
+  .star.lit { color: var(--amber); }
+
+  /* Progress bar */
+  .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .5s; }
+
+  /* Stats grid */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-big { background: var(--surface2); border-radius: var(--radius); padding: 14px; }
+  .stat-big-num { font-size: 28px; font-weight: 500; line-height: 1; }
+  .stat-big-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 8px 16px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+  @keyframes fade-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+  .fade-up { animation: fade-up .2s ease; }
+
+  /* Misc */
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; }
+  .mt8 { margin-top: 8px; }
+  .mt12 { margin-top: 12px; }
+  .mt16 { margin-top: 16px; }
+  .muted { color: var(--muted); }
+  .section { display: none; }
+  .section.visible { display: block; }
+  .error-box { background: rgba(255,95,95,.08); border: 1px solid rgba(255,95,95,.3); border-radius: var(--radius); padding: 10px 12px; font-size: 12px; color: var(--red); margin-bottom: 12px; }
+  input[type=range] { accent-color: var(--accent); }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .mono { font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">Ingoude Co.</div>
+      <div class="logo-name">Architectural AI</div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showSection('generate')">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 8h6M8 5v6"/></svg>
+        Generate
+      </div>
+      <div class="nav-item" onclick="showSection('stats')">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="showSection('finetuning')">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5"/><path d="M8 5v3l2 1"/></svg>
+        Fine-tuning
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="row"><span class="status-dot"></span><span class="status-label" id="api-status">Connecting...</span></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ── GENERATE ─────────────────────────────────── -->
+    <section class="section visible" id="sec-generate">
+
+      <div id="error-box" class="error-box" style="display:none"></div>
+
+      <!-- Step 1: Prompt -->
+      <div class="card">
+        <div class="card-title">
+          Prompt
+          <span class="badge">Step 1 — Ollama enhancement</span>
+        </div>
+        <textarea id="prompt-input" placeholder="Опишите здание — тип, этажность, площадь, участок, материалы..."></textarea>
+        <div class="mt8" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-ghost btn btn-sm" onclick="setPrompt('Жилой 5-этажный дом, 2500 м², участок 20×30 м, Алматы')">Жилой дом 5 эт.</button>
+          <button class="btn-ghost btn btn-sm" onclick="setPrompt('Двухэтажное коммерческое кафе, 400 м², участок 15×20 м')">Кафе 2 эт.</button>
+          <button class="btn-ghost btn btn-sm" onclick="setPrompt('Промышленный склад, 1200 м², высота 8 м, стальной каркас')">Склад</button>
+        </div>
+        <div class="mt12">
+          <button class="btn btn-primary" id="btn-enhance" onclick="runEnhance()">
+            Enhance via Ollama →
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Variants -->
+      <div class="card fade-up" id="card-variants" style="display:none">
+        <div class="card-title">
+          Enhanced variants
+          <span class="badge">Ollama llama3.2</span>
+          <span id="missing-pills" style="margin-left:auto;display:flex;gap:4px"></span>
+        </div>
+        <div id="variants-list"></div>
+        <div class="mt12">
+          <button class="btn btn-primary" onclick="runGenerate()">Generate AST via Claude →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: AST + Validation -->
+      <div class="card fade-up" id="card-ast" style="display:none">
+        <div class="card-title">
+          JSON AST
+          <span id="valid-badge"></span>
+          <span class="badge" style="margin-left:auto">Claude claude-sonnet-4</span>
+        </div>
+        <div class="ast-grid" id="ast-stats"></div>
+        <div class="muted" style="font-size:11px;margin-bottom:6px">Elements</div>
+        <div class="elements-scroll" id="elements-list"></div>
+        <div id="validation-lines" class="mt8"></div>
+        <div id="norms-pills" class="mt8" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+
+        <!-- Downloads -->
+        <div id="card-downloads" style="display:none">
+          <hr class="divider">
+          <div class="card-title">Output files</div>
+          <div class="row mt8" id="download-buttons"></div>
+        </div>
+
+        <!-- CAD code toggle -->
+        <hr class="divider">
+        <div class="row-between">
+          <div class="muted" style="font-size:11px">Generated CAD code</div>
+          <button class="btn btn-ghost btn-sm" onclick="toggleCode()">Show / Hide</button>
+        </div>
+        <pre id="cad-code" style="display:none;margin-top:8px"></pre>
+
+        <div class="mt12">
+          <button class="btn btn-primary" onclick="showFeedback()">Review as architect →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Feedback -->
+      <div class="card fade-up" id="card-feedback" style="display:none">
+        <div class="card-title">Architect review <span class="badge">Human-in-the-Loop</span></div>
+        <label>Quality score</label>
+        <div class="stars" id="stars">
+          <span class="star" onclick="setStar(1)">★</span>
+          <span class="star" onclick="setStar(2)">★</span>
+          <span class="star" onclick="setStar(3)">★</span>
+          <span class="star" onclick="setStar(4)">★</span>
+          <span class="star" onclick="setStar(5)">★</span>
+        </div>
+        <div class="mt12">
+          <label>Notes (optional)</label>
+          <textarea id="feedback-notes" style="min-height:60px" placeholder="Стены ok, не хватает лестницы..."></textarea>
+        </div>
+        <div class="mt12">
+          <button class="btn btn-primary" id="btn-submit" onclick="submitFeedback()" disabled>Submit feedback →</button>
+        </div>
+        <div id="feedback-ok" style="display:none" class="mt12">
+          <span class="pill pill-green">✓ Feedback saved · record queued for training</span>
+          <div class="mt12">
+            <button class="btn btn-ghost btn-sm" onclick="reset()">↺ New generation</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── DASHBOARD ──────────────────────────────── -->
+    <section class="section" id="sec-stats">
+      <div style="font-size:18px;font-weight:500;margin-bottom:20px">Dashboard</div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-big"><div class="stat-big-num" id="s-total">—</div><div class="stat-big-label">Total generations</div></div>
+        <div class="stat-big"><div class="stat-big-num" id="s-approved">—</div><div class="stat-big-label">Approved by architect</div></div>
+        <div class="stat-big"><div class="stat-big-num" id="s-pending">—</div><div class="stat-big-label">Pending training</div></div>
+      </div>
+      <div class="card mt16">
+        <div class="card-title">Avg quality score</div>
+        <div style="font-size:28px;font-weight:500" id="s-score">—</div>
+        <div class="progress-bar mt8"><div class="progress-fill" id="s-score-bar" style="width:0%"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">By building type</div>
+        <div id="s-types"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="loadStats()">↺ Refresh</button>
+    </section>
+
+    <!-- ── FINE-TUNING ────────────────────────────── -->
+    <section class="section" id="sec-finetuning">
+      <div style="font-size:18px;font-weight:500;margin-bottom:20px">Fine-tuning pipeline</div>
+      <div class="card">
+        <div class="card-title">Readiness</div>
+        <div id="ft-ready-text" class="muted" style="font-size:13px;margin-bottom:10px">Loading...</div>
+        <div class="progress-bar"><div class="progress-fill" id="ft-bar" style="width:0%"></div></div>
+        <div class="mt8" style="font-size:11px;color:var(--dim)" id="ft-count"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Dependencies</div>
+        <div id="ft-deps"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Training config <span class="badge">LoRA / QLoRA</span></div>
+        <div style="font-size:12px;color:var(--muted);line-height:2">
+          Base model: <span class="mono" style="color:var(--text)">mistralai/Mistral-7B-v0.1</span><br>
+          Method: <span style="color:var(--text)">QLoRA (4-bit NF4)</span><br>
+          LoRA r: <span style="color:var(--text)">16</span> · alpha: <span style="color:var(--text)">32</span><br>
+          Epochs: <span style="color:var(--text)">3</span> · LR: <span style="color:var(--text)">2e-4</span>
+        </div>
+      </div>
+      <div class="row mt8">
+        <button class="btn btn-ghost" id="btn-dryrun" onclick="runFineTune(true)">Dry run (no training)</button>
+        <button class="btn btn-primary" id="btn-train" onclick="runFineTune(false)" disabled>Run LoRA training</button>
+      </div>
+      <div id="ft-result" class="card mt16" style="display:none">
+        <div class="card-title">Result</div>
+        <pre id="ft-result-pre"></pre>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const API = '/api';
+let state = { recordId: null, selectedVariant: 0, starScore: 0, astData: null };
+
+// ── Navigation ──────────────────────────────────────────────
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('visible');
+  event.currentTarget.classList.add('active');
+  if (name === 'stats') loadStats();
+  if (name === 'finetuning') loadReadiness();
+}
+
+// ── API helpers ─────────────────────────────────────────────
+async function api(path, body) {
+  const opts = body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { method: 'GET' };
+  const res = await fetch(API + path, opts);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function setError(msg) {
+  const box = document.getElementById('error-box');
+  if (msg) { box.textContent = '⚠ ' + msg; box.style.display = 'block'; }
+  else box.style.display = 'none';
+}
+
+function setBtnLoading(id, loading, label) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span> ' + label : (btn.dataset.label || label);
+  if (!loading && label) btn.dataset.label = label;
+}
+
+// ── Health check ────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    await api('/health');
+    document.getElementById('api-status').textContent = 'API connected';
+  } catch {
+    document.getElementById('api-status').textContent = 'API offline';
+    document.querySelector('.status-dot').style.background = 'var(--red)';
+  }
+}
+
+// ── Prompt ──────────────────────────────────────────────────
+function setPrompt(text) { document.getElementById('prompt-input').value = text; }
+
+// ── Step 1: Enhance ─────────────────────────────────────────
+async function runEnhance() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt) return;
+  setError(null);
+  setBtnLoading('btn-enhance', true, 'Ollama enhancing...');
+
+  try {
+    const data = await api('/generate', { prompt, variant_index: 0 });
+    state.recordId = data.record_id;
+    state.astData = data.ast;
+    state.selectedVariant = 0;
+
+    // Show variants
+    const variants = data.enhanced_variants || [prompt];
+    const list = document.getElementById('variants-list');
+    list.innerHTML = '';
+    variants.forEach((v, i) => {
+      const el = document.createElement('div');
+      el.className = 'variant' + (i === 0 ? ' selected' : '');
+      el.innerHTML = `<div class="variant-num">#${i + 1}</div>${v}`;
+      el.onclick = () => {
+        document.querySelectorAll('.variant').forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        state.selectedVariant = i;
+      };
+      list.appendChild(el);
+    });
+
+    // Missing params
+    const pills = document.getElementById('missing-pills');
+    pills.innerHTML = '';
+    (data.missing_params || []).forEach(p => {
+      pills.innerHTML += `<span class="pill pill-amber">${p}</span>`;
+    });
+
+    document.getElementById('card-variants').style.display = 'block';
+
+    // Pre-fill AST too (already generated)
+    showAST(data);
+
+  } catch(e) { setError(e.message); }
+
+  setBtnLoading('btn-enhance', false, 'Enhance via Ollama →');
+}
+
+// ── Step 2: Already done in runEnhance — but allow re-gen ───
+async function runGenerate() {
+  setError(null);
+  const prompt = document.getElementById('prompt-input').value.trim();
+  try {
+    const data = await api('/generate', { prompt, variant_index: state.selectedVariant });
+    state.recordId = data.record_id;
+    state.astData = data.ast;
+    showAST(data);
+  } catch(e) { setError(e.message); }
+}
+
+// ── Show AST card ────────────────────────────────────────────
+function showAST(data) {
+  const ast = data.ast || {};
+  const b = ast.building || {};
+  const s = ast.site || {};
+  const els = ast.elements || [];
+
+  // Stats
+  document.getElementById('ast-stats').innerHTML = [
+    ['Type', b.type || '—'],
+    ['Floors', b.floors || '—'],
+    ['Area', b.total_area ? b.total_area + ' m²' : '—'],
+    ['Structure', b.structural_system || '—'],
+    ['Site', s.width && s.length ? `${s.width/1000}×${s.length/1000} m` : '—'],
+    ['Orient.', s.orientation || '—'],
+  ].map(([l, v]) => `<div class="stat-cell"><div class="stat-label">${l}</div><div class="stat-val">${v}</div></div>`).join('');
+
+  // Elements
+  const elList = document.getElementById('elements-list');
+  elList.innerHTML = els.slice(0, 30).map(el =>
+    `<div class="element-row">
+      <span class="el-type">${el.type}</span>
+      <span class="el-id">${el.id}</span>
+      <span class="el-mat">${el.material || ''}</span>
+    </div>`
+  ).join('') + (els.length > 30 ? `<div class="muted" style="font-size:11px;padding:4px 8px">+${els.length - 30} more</div>` : '');
+
+  // Validation
+  const valid = data.is_valid;
+  document.getElementById('valid-badge').innerHTML =
+    `<span class="pill ${valid ? 'pill-green' : 'pill-red'}">${valid ? '✓ valid' : '✗ invalid'}</span>`;
+
+  const vlines = document.getElementById('validation-lines');
+  vlines.innerHTML = [
+    ...(data.validation_errors || []).map(e => `<div class="vline err">✗ ${e}</div>`),
+    ...(data.validation_warnings || []).map(w => `<div class="vline warn">⚠ ${w}</div>`),
+    ...(data.validation_errors?.length === 0 && data.validation_warnings?.length === 0
+      ? ['<div class="vline ok">✓ Geometry checks passed</div>'] : []),
+  ].join('');
+
+  // Norms
+  const norms = ast.metadata?.norms_applied || [];
+  document.getElementById('norms-pills').innerHTML = norms.map(n =>
+    `<span class="pill pill-gray">${n}</span>`).join('');
+
+  // CAD code
+  document.getElementById('cad-code').textContent = data.cad_code || '(no CAD code generated)';
+
+  // Download buttons
+  const dlCard = document.getElementById('card-downloads');
+  const dlBtns = document.getElementById('download-buttons');
+  dlBtns.innerHTML = '';
+  const files = [
+    { path: data.dxf_path, label: '↓ DXF (2D floor plan)', ext: 'dxf' },
+    { path: data.obj_path, label: '↓ OBJ (3D model)',      ext: 'obj' },
+  ];
+  files.forEach(({ path, label, ext }) => {
+    if (!path) return;
+    const filename = path.split('/').pop();
+    const a = document.createElement('a');
+    a.href = API + '/download/' + filename;
+    a.download = filename;
+    a.className = 'btn btn-ghost btn-sm';
+    a.textContent = label;
+    dlBtns.appendChild(a);
+    // MTL companion for OBJ
+    if (ext === 'obj') {
+      const mtl = document.createElement('a');
+      mtl.href = API + '/download/' + filename.replace('.obj', '.mtl');
+      mtl.download = filename.replace('.obj', '.mtl');
+      mtl.className = 'btn btn-ghost btn-sm';
+      mtl.textContent = '↓ MTL (materials)';
+      dlBtns.appendChild(mtl);
+    }
+  });
+  dlCard.style.display = dlBtns.children.length ? 'block' : 'none';
+
+  document.getElementById('card-ast').style.display = 'block';
+}
+
+function toggleCode() {
+  const el = document.getElementById('cad-code');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Feedback ─────────────────────────────────────────────────
+function showFeedback() { document.getElementById('card-feedback').style.display = 'block'; }
+
+function setStar(n) {
+  state.starScore = n;
+  document.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('lit', i < n));
+  document.getElementById('btn-submit').disabled = false;
+}
+
+async function submitFeedback() {
+  if (!state.starScore || !state.recordId) return;
+  setBtnLoading('btn-submit', true, 'Saving...');
+  try {
+    await api('/feedback', {
+      record_id: state.recordId,
+      quality_score: state.starScore,
+      notes: document.getElementById('feedback-notes').value || null,
+    });
+    document.getElementById('feedback-ok').style.display = 'block';
+    document.getElementById('btn-submit').style.display = 'none';
+  } catch(e) { setError(e.message); }
+  setBtnLoading('btn-submit', false, 'Submit feedback →');
+}
+
+function reset() {
+  ['card-variants','card-ast','card-feedback','card-downloads'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('feedback-ok').style.display = 'none';
+  document.getElementById('btn-submit').style.display = 'inline-flex';
+  document.getElementById('prompt-input').value = '';
+  document.getElementById('feedback-notes').value = '';
+  document.querySelectorAll('.star').forEach(s => s.classList.remove('lit'));
+  setError(null);
+  state = { recordId: null, selectedVariant: 0, starScore: 0, astData: null };
+}
+
+// ── Stats ────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const d = await api('/stats');
+    document.getElementById('s-total').textContent = d.total || 0;
+    document.getElementById('s-approved').textContent = d.approved || 0;
+    document.getElementById('s-pending').textContent = d.pending_training || 0;
+    const score = d.avg_quality_score;
+    document.getElementById('s-score').textContent = score ? score.toFixed(1) + ' / 5' : '—';
+    document.getElementById('s-score-bar').style.width = score ? (score / 5 * 100) + '%' : '0%';
+    const types = d.by_building_type || {};
+    document.getElementById('s-types').innerHTML = Object.entries(types).map(([k, v]) =>
+      `<div class="element-row"><span class="el-type">${k}</span><span style="margin-left:auto;font-size:13px">${v}</span></div>`
+    ).join('') || '<span class="muted">No data yet</span>';
+  } catch(e) { console.warn('stats error', e); }
+}
+
+// ── Fine-tuning ──────────────────────────────────────────────
+async function loadReadiness() {
+  try {
+    const d = await api('/readiness');
+    const count = d.approved_unused_records || 0;
+    const min = d.min_required || 50;
+    const pct = Math.min((count / min) * 100, 100);
+    document.getElementById('ft-ready-text').textContent = d.ready_for_training
+      ? '✓ Ready to train' : `Collecting data — ${count} of ${min} records`;
+    document.getElementById('ft-bar').style.width = pct + '%';
+    document.getElementById('ft-count').textContent = `${count} approved · ${min - count} more needed`;
+    document.getElementById('btn-train').disabled = !d.ready_for_training;
+
+    const deps = d.missing_deps || [];
+    document.getElementById('ft-deps').innerHTML = [
+      'transformers','peft','trl','accelerate','bitsandbytes','datasets'
+    ].map(dep => {
+      const ok = !deps.includes(dep);
+      return `<div class="element-row"><span class="${ok ? 'el-type' : 'el-id'}">${dep}</span><span class="pill ${ok ? 'pill-green' : 'pill-amber'}" style="margin-left:auto">${ok ? '✓' : 'missing'}</span></div>`;
+    }).join('');
+  } catch(e) { document.getElementById('ft-ready-text').textContent = 'Could not load'; }
+}
+
+async function runFineTune(dry) {
+  const id = dry ? 'btn-dryrun' : 'btn-train';
+  setBtnLoading(id, true, dry ? 'Running dry run...' : 'Training...');
+  try {
+    const result = await api('/fine-tune', { dry_run: dry });
+    document.getElementById('ft-result').style.display = 'block';
+    document.getElementById('ft-result-pre').textContent = JSON.stringify(result, null, 2);
+  } catch(e) { setError(e.message); }
+  setBtnLoading(id, false, dry ? 'Dry run' : 'Run LoRA training');
+}
+
+// ── Init ─────────────────────────────────────────────────────
+checkHealth();
+</script>
+</body>
+</html>

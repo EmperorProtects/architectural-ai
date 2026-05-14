@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/home/emperorprotects/github/architectural-ai/venv/bin/python *)",
+      "Bash(./venv/bin/python test.py)",
+      "Bash(./venv/bin/python *)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}
